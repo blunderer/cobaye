@@ -1,0 +1,41 @@
+#
+# COBAYE - Simple test framework
+# author: Tristan Lelong <tristan.lelong@blunderer.org>
+#
+
+Testing is an important task, but can be quite tedious. Having a test framework
+to rely on can be useful and helps to focus on test efficency.
+Cobaye is a test framework with a ncurses based interface that can run thru a 
+telnet / serial connection. It also offers a batch mode to run automatic test 
+sequences.
+
+The test API is extremely simple: write your test in the 'tests' directory.
+The tests must be declared using macro cobaye_declare_test with the 
+struct cobaye_test that describe your test:
+
+struct cobaye_test my_test = {
+	.name = "mytest",
+	.descr = "a simple test description",
+	.main = my_test_main,
+	.flags = TST_NO_USER,
+};
+
+cobaye_declare_test(my_test);
+
+Then, the build system will automatically compile and embed your test case.
+
+At run the test framework, will generate a list of all compiled tests and when
+running a test, it will fork to run the test.
+
+cobaye features are:
+- cobaye_printf to display logs
+- cobaye_scanf to prompt user for input
+- resources embedded as blob
+- report generation
+- batch mode (for auto tests only)
+- build flags customization for tests
+- out of tree build
+- handling of test sequences
+
+For more info, check out the dummy.c test example.
+
