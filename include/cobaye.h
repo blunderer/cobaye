@@ -39,12 +39,16 @@ void cobaye_stdout_put_unsafe(void);
 
 #else /* COBAYE_FRAMEWORK */
 
-#define cobaye_declare_resource(res, data, size)
+#define cobaye_declare_resource(res, data, size)	static char *data = NULL; \
+							static long size = 0
+
 #define cobaye_declare_test(test)       int main(void) { return test.main(); }
 #define cobaye_return(result)           exit(result)
 
 #define cobaye_printf(...)		printf(__VA_ARGS__)
-#define cobaye_fgets(s, size, stream)	fgets(s, size, stream)
+#define cobaye_scanf(...)		scanf(__VA_ARGS__)
+#define cobaye_status(id, fmt, ...)	printf(fmt, __VA_ARGS__); printf("\n")
+
 #define cobaye_stdout_get_unsafe()
 #define cobaye_stdout_put_unsafe()
 

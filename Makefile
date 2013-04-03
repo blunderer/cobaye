@@ -37,7 +37,8 @@ INCDIR	= -Iinclude
 
 TARGET	= cobaye
 
-CFLAGS	+= -g -Wall -Wextra -Wno-unused -DCOBAYE_FRAMEWORK -D_GNU_SOURCE
+EXT_CFLAGS	+= -g -Wall -Wextra -Wno-unused -D_GNU_SOURCE
+CFLAGS		+= $(EXT_CFLAGS) -DCOBAYE_FRAMEWORK
 
 LDFLAGS	+= -lncurses -lpthread -lrt
 
@@ -88,6 +89,10 @@ tests/%.o: tests/%.c framework/cobaye_tests.o
 	$P '  CC [TST]	$@'
 	$E $(TOPDIR)/validate_tests.sh $<
 	$E $(CC) -c -o $@ $< $(INCDIR) $(CFLAGS) $(CFLAGS_$(shell NAME=$@ && basename $${NAME%.o}))
+
+tests/%.ext: tests/%.c
+	$P '  CC [EXT]	$@'
+	$E $(CC) -o $@ $< $(INCDIR) $(EXT_CFLAGS) $(CFLAGS_$(shell NAME=$@ && basename $${NAME%.o})) $(L_LDFLAGS)
 
 framework/zztest.o: framework/zztest.c $(RES)
 	$P '  CC 		$@'
