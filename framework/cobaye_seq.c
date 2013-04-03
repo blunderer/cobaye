@@ -43,13 +43,10 @@ int cobaye_edit_seq(struct menu *entry)
 	return 0;
 }
 
-void cobaye_build_seq(struct menu *entry)
+static FILE *cobaye_open_seq(struct menu *entry, char *seqname)
 {
 	FILE *seq = fopen(entry->string, "r");
-
 	if (seq) {
-		int i = 1;
-		char seqname[128];
 		char data[128];
 
 		fgets(seqname, 127, seq);
@@ -65,43 +62,71 @@ void cobaye_build_seq(struct menu *entry)
 
 		seqmenu[0].type = menutype_title;
 		strncpy(seqmenu[0].name, seqname, 16);
+	}
+	return seq;
+}
+
+static void cobaye_prepare_seq(struct menu *entry, char *seqname)
+{
+	entry[1].type = menutype_func;
+	cobaye_list[cobaye_count - 3].type = menutype_func;
+	sprintf(cobaye_list[cobaye_count - 3].name, "sequence: %s",
+			seqname);
+
+	seqmenu[seq_count + 1].type = menutype_disabled;
+	seqmenu[seq_count + 2].type = menutype_func;
+	seqmenu[seq_count + 2].func = cobaye_menu_quit;
+	strcpy(seqmenu[seq_count + 2].name, "Back");
+	strcpy(seqmenu[seq_count + 2].help, "Go back to main menu.");
+	seq_count += 3;
+
+	return;
+}
+
+static int cobaye_seq_add_entry(char *data, int index)
+{
+	char *cobaye_name;
+	int cobaye_iter = 0;
+	struct cobaye_test *newtest = NULL;
+
+	cobaye_name = strchr(data, ':');
+	if (cobaye_name) {
+		cobaye_name++;
+		cobaye_iter = atoi(data);
+		newtest = cobaye_test_exist(cobaye_name);
+
+		if (newtest) {
+			seqmenu[index].type = menutype_bool;
+			seqmenu[index].test = newtest;
+			seqmenu[index].value = 1;
+			sprintf(seqmenu[index].name, "%s (x%d)",
+					cobaye_name, cobaye_iter);
+			sprintf(seqmenu[index].string, "%d",
+					cobaye_iter);
+			index++;
+		}
+	}
+	return index;
+}
+
+void cobaye_build_seq(struct menu *entry)
+{
+	int i = 1;
+	char seqname[128];
+	FILE *seq = cobaye_open_seq(entry, seqname);
+	
+	if (seq) {
+		char data[128];
+
 		while (i <= seq_count && !feof(seq)) {
-			char *cobaye_name;
 			fgets(data, 127, seq);
 			data[strlen(data) - 1] = '\0';
 
-			cobaye_name = strchr(data, ':');
-			if (cobaye_name) {
-				int cobaye_iter = 0;
-				struct cobaye_test *newtest = NULL;
-				cobaye_name++;
-				cobaye_iter = atoi(data);
-				newtest = cobaye_test_exist(cobaye_name);
-				if (newtest) {
-					seqmenu[i].type = menutype_bool;
-					seqmenu[i].test = newtest;
-					seqmenu[i].value = 1;
-					sprintf(seqmenu[i].name, "%s (x%d)",
-						cobaye_name, cobaye_iter);
-					sprintf(seqmenu[i].string, "%d",
-						cobaye_iter);
-					i++;
-				}
-			}
+			i = cobaye_seq_add_entry(data, i);
 		}
 		fclose(seq);
 
-		entry[1].type = menutype_func;
-		cobaye_list[cobaye_count - 3].type = menutype_func;
-		sprintf(cobaye_list[cobaye_count - 3].name, "sequence: %s",
-			seqname);
-
-		seqmenu[seq_count + 1].type = menutype_disabled;
-		seqmenu[seq_count + 2].type = menutype_func;
-		seqmenu[seq_count + 2].func = cobaye_menu_quit;
-		strcpy(seqmenu[seq_count + 2].name, "Back");
-		strcpy(seqmenu[seq_count + 2].help, "Go back to main menu.");
-		seq_count += 3;
+		cobaye_prepare_seq(entry, seqname);
 	}
 }
 

@@ -75,13 +75,115 @@ int cobaye_menu_redraw(WINDOW * win, struct menu *menu, int count, int offset)
 	return 0;
 }
 
-int cobaye_display_menu(WINDOW * win, struct menu *menu, int nb_items)
+static int menu_page_next(struct menu *menu, int index, int y, int nb_items)
+{
+	index += y - 4;
+	while (index < nb_items
+			&& ((menu[index].name[0] == 0)
+				|| (menu[index].type == menutype_disabled)))
+		index++;
+	if (index > nb_items - 1)
+		index = 1;
+	return index;
+}
+
+static int menu_page_prev(struct menu *menu, int index, int y, int nb_items)
+{
+	index -= y - 4;
+	while (index > 0 && ((menu[index].name[0] == 0) ||
+				(menu[index].type ==
+				 menutype_disabled)))
+		index--;
+	if (index < 1)
+		index = nb_items - 1;
+	return index;
+}
+
+static int menu_next(struct menu *menu, int index, int y, int nb_items)
+{
+	index++;
+	while (index < nb_items
+			&& ((menu[index].name[0] == 0)
+				|| (menu[index].type == menutype_disabled)))
+		index++;
+	if (index > nb_items - 1)
+		index = 1;
+	return index;
+}
+
+static int menu_prev(struct menu *menu, int index, int y, int nb_items)
+{
+	index--;
+	while (index > 0 && ((menu[index].name[0] == 0) ||
+				(menu[index].type ==
+				 menutype_disabled)))
+		index--;
+	if (index < 1)
+		index = nb_items - 1;
+	return index;
+}
+
+static int menu_enter(WINDOW * win, struct menu *menu, int index, int nb_items, int offset)
+{
+	int ret = 0;
+
+	if (menu[index].type == menutype_func) {
+		if (menu[index].func) {
+			ret = menu[index].func(&menu[index]);
+			cobaye_menu_redraw(win, menu, nb_items,
+					offset);
+		}
+	} else if (menu[index].type == menutype_int) {
+		cobaye_menu_prompt(&menu[index]);
+	} else if (menu[index].type == menutype_char) {
+		cobaye_menu_prompt(&menu[index]);
+	} else if (menu[index].type == menutype_bool) {
+		menu[index].value = (menu[index].value + 1) % 2;
+	}
+
+	return ret;
+}
+
+static int menu_scroll(WINDOW *win, struct menu *menu, int index, int index_base, int nb_items, int offset, int y)
+{
+	int offset_range;
+	if (nb_items > (y - 4)) {
+		offset_range = nb_items - (y - 4);
+	}
+
+	if (index - index_base > 0) {
+		if (index + 3 >= y + offset) {
+			offset += index - index_base;
+		}
+	} else if (index - index_base < 0) {
+		if (index < offset) {
+			offset += index - index_base;
+		}
+	}
+	if (offset < 0) {
+		offset = 0;
+	}
+	if (offset > offset_range) {
+		offset = offset_range;
+	}
+	wscrl(win, index - index_base);
+	cobaye_menu_redraw(win, menu, nb_items, offset);
+
+	wattron(win, COLOR_PAIR(1));
+	cobaye_display_help(menu[index].help);
+	cobaye_display_menu_entry(win, &menu[index],
+			index - offset);
+	wattroff(win, COLOR_PAIR(1));
+	wrefresh(win);
+	return offset;
+}
+
+int cobaye_display_menu(WINDOW *win, struct menu *menu, int nb_items)
 {
 	int x, y;
 	int index = 1;
 	int ret = 0;
 	int offset = 0;
-	int offset_range = 0;
 
 	wattron(win, COLOR_PAIR(1));
 	cobaye_display_help(menu[index].help);
@@ -89,9 +191,7 @@ int cobaye_display_menu(WINDOW * win, struct menu *menu, int nb_items)
 	wattroff(win, COLOR_PAIR(1));
 
 	getmaxyx(win, y, x);
-	if (nb_items > (y - 4)) {
-		offset_range = nb_items - (y - 4);
-	}
+
 	wrefresh(win);
 
 	while (ret == 0) {
@@ -110,85 +210,26 @@ int cobaye_display_menu(WINDOW * win, struct menu *menu, int nb_items)
 		case '\n':
 		case ' ':
 		case KEY_RIGHT:
-			if (menu[index].type == menutype_func) {
-				if (menu[index].func) {
-					ret = menu[index].func(&menu[index]);
-					cobaye_menu_redraw(win, menu, nb_items,
-							   offset);
-				}
-			} else if (menu[index].type == menutype_int) {
-				cobaye_menu_prompt(&menu[index]);
-			} else if (menu[index].type == menutype_char) {
-				cobaye_menu_prompt(&menu[index]);
-			} else if (menu[index].type == menutype_bool) {
-				menu[index].value = (menu[index].value + 1) % 2;
-			}
+			ret = menu_enter(win, menu, index, nb_items, offset);
 			break;
 		case KEY_PPAGE:
-			index -= y - 4;
-			while (index > 0 && ((menu[index].name[0] == 0) ||
-					     (menu[index].type ==
-					      menutype_disabled)))
-				index--;
-			if (index < 1)
-				index = nb_items - 1;
+			index = menu_page_prev(menu, index, y, nb_items);
 			break;
 		case KEY_NPAGE:
-			index += y - 4;
-			while (index < nb_items
-			       && ((menu[index].name[0] == 0)
-				   || (menu[index].type == menutype_disabled)))
-				index++;
-			if (index > nb_items - 1)
-				index = 1;
+			index = menu_page_next(menu, index, y, nb_items);
 			break;
 		case KEY_UP:
-			index--;
-			while (index > 0 && ((menu[index].name[0] == 0) ||
-					     (menu[index].type ==
-					      menutype_disabled)))
-				index--;
-			if (index < 1)
-				index = nb_items - 1;
+			index = menu_prev(menu, index, y, nb_items);
 			break;
 		case KEY_DOWN:
-			index++;
-			while (index < nb_items
-			       && ((menu[index].name[0] == 0)
-				   || (menu[index].type == menutype_disabled)))
-				index++;
-			if (index > nb_items - 1)
-				index = 1;
+			index = menu_next(menu, index, y, nb_items);
 			break;
 		default:
 			break;
 		}
 
 		if (ret == 0) {
-			if (index - index_base > 0) {
-				if (index + 3 >= y + offset) {
-					offset += index - index_base;
-				}
-			} else if (index - index_base < 0) {
-				if (index < offset) {
-					offset += index - index_base;
-				}
-			}
-			if (offset < 0) {
-				offset = 0;
-			}
-			if (offset > offset_range) {
-				offset = offset_range;
-			}
-			wscrl(win, index - index_base);
-			cobaye_menu_redraw(win, menu, nb_items, offset);
-
-			wattron(win, COLOR_PAIR(1));
-			cobaye_display_help(menu[index].help);
-			cobaye_display_menu_entry(win, &menu[index],
-						  index - offset);
-			wattroff(win, COLOR_PAIR(1));
-			wrefresh(win);
+			offset = menu_scroll(win, menu, index, index_base, nb_items, offset, y);
 		}
 	}
 	return 0;

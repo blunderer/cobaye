@@ -25,12 +25,14 @@ static char reportpath[512];
 static FILE *logfile = NULL;
 static FILE *reportfile = NULL;
 
+/* tests statistics */
 static struct timeval stat_start_test;
 static struct timeval stat_stop_test;
 static int stat_nb_pass = 0;
 static int stat_nb_fail = 0;
 static int stat_nb_test = 0;
 
+/* State machine for pipe redirection */
 #define STATUS_EOT	0
 #define STATUS_INIT	1
 #define STATUS_STRING	2

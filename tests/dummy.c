@@ -12,7 +12,7 @@ void *th_func(void *t)
 {
 	long id = (long)t;
 
-	cobaye_status(id, "hello from %d\n", id);
+	cobaye_status(id, "hello from %ld\n", id);
 
 	return NULL;
 }
@@ -25,7 +25,7 @@ int test_main(void)
 	pthread_create(&th[0], NULL, th_func, (void*)1);
 	pthread_create(&th[1], NULL, th_func, (void*)2);
 
-	cobaye_printf("get resource content: %s (len=%d)\n", text, text_len);
+	cobaye_printf("get resource content: %s (len=%ld)\n", text, text_len);
 	cobaye_printf("choose the return code: ");
 	cobaye_scanf("%d", &ret);
 	cobaye_printf("\n");

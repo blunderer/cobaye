@@ -20,7 +20,7 @@ int cobaye_ncurses_enabled(void)
 	return ncurses_init;
 }
 
-void cobaye_init_curses()
+static void cobaye_init_curses()
 {
 	mainwin = initscr();
 	keypad(stdscr, TRUE);
@@ -34,13 +34,13 @@ void cobaye_init_curses()
 	ncurses_init = 1;
 }
 
-void cobaye_exit_curses()
+static void cobaye_exit_curses()
 {
 	delwin(titlewin);
 	endwin();
 }
 
-void cobaye_display_home(void)
+static void cobaye_display_home(void)
 {
 	FILE *home = NULL;
 	wclear(ctxwin);
@@ -66,7 +66,7 @@ void cobaye_display_home(void)
 	wrefresh(ctxwin);
 }
 
-int usage(void)
+static int usage(void)
 {
 	printf("usage: ");
 	printf("cobaye [options]\n");
@@ -84,7 +84,7 @@ int usage(void)
 
 static char *batch_mode = NULL;
 
-int parse_cmdline(int argc, char **argv)
+static int parse_cmdline(int argc, char **argv)
 {
 	int index = 0;
 	while (argc) {
@@ -156,34 +156,10 @@ int parse_cmdline(int argc, char **argv)
 	return 0;
 }
 
-int main(int argc, char **argv)
+static int cobaye_init_display()
 {
-	unsigned int i;
-	int x, y, center;
+	int i, x, y, center;
 	char titlestr[40];
-
-	cobaye_count = cobaye_build_list(NULL);
-	cobaye_list = calloc(cobaye_count, sizeof(struct menu));
-	cobaye_count = cobaye_build_list(cobaye_list);
-
-	parse_cmdline(argc - 1, argv + 1);
-
-	if (batch_mode) {
-		int ret = 0;
-		struct menu entry;
-		entry.test = cobaye_test_exist(batch_mode);
-		if (entry.test) {
-			cobaye_run_tst(&entry);
-		} else if (strcmp(batch_mode, optmenu[item_load].string) == 0) {
-			cobaye_run_tst(&entry);
-		} else {
-			printf("test '%s' doesn't exist\n", batch_mode);
-			ret = -1;
-		}
-		return ret;
-	}
-
-	cobaye_init_curses();
 
 	getmaxyx(mainwin, y, x);
 
@@ -222,25 +198,67 @@ int main(int argc, char **argv)
 	wrefresh(menuwin);
 	wrefresh(ctxwin);
 
-	cobaye_display_home();
-	cobaye_display_status("");
-	cobaye_display_help("Select a menu.");
+	return 0;
+}
 
-	for (i = 0; i < (sizeof(optmenu) / sizeof(struct menu)); i++) {
-		cobaye_display_menu_entry(menuwin, &optmenu[i], i);
-	}
-
+static int cobaye_mainloop(void)
+{
 	while (1) {
 		int pressed;
-		cobaye_display_status("");
-		cobaye_display_menu(menuwin, optmenu, i);
+		int index = sizeof(optmenu) / sizeof(struct menu);
+		cobaye_display_menu(menuwin, optmenu, index);
 		cobaye_display_status("Do you really want to exit? (y|N)");
 		pressed = getch();
 		if ((pressed == 'Y') || (pressed == 'y'))
 			break;
 	}
+	return 0;
+}
 
-	cobaye_exit_curses();
+static int cobaye_run_batch(void)
+{
+	int ret = 0;
+	struct menu entry;
+	entry.test = cobaye_test_exist(batch_mode);
+	if (entry.test) {
+		cobaye_run_tst(&entry);
+	} else if (strcmp(batch_mode, optmenu[item_load].string) == 0) {
+		cobaye_run_tst(&entry);
+	} else {
+		printf("test '%s' doesn't exist\n", batch_mode);
+		ret = -1;
+	}
+	return ret;
+}
+
+int main(int argc, char **argv)
+{
+	unsigned int i;
+
+	cobaye_count = cobaye_build_list(NULL);
+	cobaye_list = calloc(cobaye_count, sizeof(struct menu));
+	cobaye_count = cobaye_build_list(cobaye_list);
+
+	parse_cmdline(argc - 1, argv + 1);
+
+	if (batch_mode) {
+		cobaye_run_batch();
+	} else {
+		cobaye_init_curses();
+		cobaye_init_display();
+
+		cobaye_display_home();
+		cobaye_display_status("");
+		cobaye_display_help("Select a menu.");
+
+		for (i = 0; i < (sizeof(optmenu) / sizeof(struct menu)); i++) {
+			cobaye_display_menu_entry(menuwin, &optmenu[i], i);
+		}
+
+		cobaye_mainloop();
+
+		cobaye_exit_curses();
+	}
 
 	return 0;
 }
