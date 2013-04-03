@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Cobaye : ncurse based test framework" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Cobaye</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/blunderer/cobaye">View on GitHub</a>
+
+          <h1 id="project_title">Cobaye</h1>
+          <h2 id="project_tagline">ncurse based test framework</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/blunderer/cobaye/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/blunderer/cobaye/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>COBAYE - Simple test framework</h1>
+
+<h2>author: Tristan Lelong <a href="mailto:tristan.lelong@blunderer.org">tristan.lelong@blunderer.org</a>
+</h2>
+
+<p>Testing is an important task, but can be quite tedious. Having a test framework
+to rely on can be useful and helps to focus on test efficency.
+Cobaye is a test framework with a ncurses based interface that can run thru a 
+telnet / serial connection. It also offers a batch mode to run automatic test 
+sequences.</p>
+
+<p>The test API is extremely simple: write your test in the 'tests' directory.
+The tests must be declared using macro cobaye_declare_test with the 
+struct cobaye_test that describe your test:</p>
+
+<pre><code>struct cobaye_test my_test = {
+    .name = "mytest",
+    .descr = "a simple test description",
+    .main = my_test_main,
+    .flags = TST_NO_USER,
+};
+
+cobaye_declare_test(my_test);
+</code></pre>
+
+<p>Then, the build system will automatically compile and embed your test case.</p>
+
+<p>At run time the test framework, will generate a list of all compiled tests and when
+running a test, it will fork to run the test.</p>
+
+<p>cobaye features are:</p>
+
+<ul>
+<li>cobaye_printf to display logs</li>
+<li>cobaye_scanf to prompt user for input</li>
+<li>resources embedded as blob</li>
+<li>report generation</li>
+<li>batch mode (for auto tests only)</li>
+<li>build flags customization for tests</li>
+<li>out of tree build</li>
+<li>handling of test sequences</li>
+</ul><p>For more info, check out the dummy.c test example.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Cobaye maintained by <a href="https://github.com/blunderer">blunderer</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
