@@ -28,6 +28,7 @@ OBJS	= framework/cobaye_main.o \
 		framework/cobaye_menus.o \
 		framework/cobaye_display.o \
 		framework/cobaye_seq.o \
+		framework/cobaye_report.o \
 		$(TESTS:.c=.o) \
 		framework/zztest.o
 

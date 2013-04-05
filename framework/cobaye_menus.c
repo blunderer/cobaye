@@ -61,7 +61,7 @@ struct menu testmenu[3] = {
 	 },
 };
 
-struct menu confmenu[13] = {
+struct menu confmenu[15] = {
 	{
 	 .type = menutype_title,
 	 .name = "Configuration",
@@ -95,7 +95,7 @@ struct menu confmenu[13] = {
 	 },
 	{
 	 .type = menutype_bool,
-	 .name = "Txt report",
+	 .name = "TXT report",
 	 .help = "Write a txt output report to a file.",
 	 .func = NULL,
 	 .value = 0,
@@ -109,8 +109,22 @@ struct menu confmenu[13] = {
 	 },
 	{
 	 .type = menutype_bool,
-	 .name = "Tex report",
-	 .help = "Write an tex output report to a file.",
+	 .name = "TEX report",
+	 .help = "Write a tex output report to a file.",
+	 .func = NULL,
+	 .value = 0,
+	 },
+	{
+	 .type = menutype_bool,
+	 .name = "XML report",
+	 .help = "Write an xml output report to a file.",
+	 .func = NULL,
+	 .value = 0,
+	 },
+	{
+	 .type = menutype_bool,
+	 .name = "HTML report",
+	 .help = "Write an html output report to a file.",
 	 .func = NULL,
 	 .value = 0,
 	 },

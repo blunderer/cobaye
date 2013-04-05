@@ -8,7 +8,11 @@ enum menuconfig {
 	item_title = 0,
 	item_stop_on_error = 2,
 	item_repeat,
-	item_log_file = 6,
+	item_txt_report = 6,
+	item_csv_report,
+	item_tex_report,
+	item_xml_report,
+	item_html_report,
 	item_filename,
 	item_date,
 };

@@ -8,7 +8,7 @@
  */
 cobaye_declare_resource(text_txt, text, text_len);
 
-void *th_func(void *t)
+static void *th_func(void *t)
 {
 	long id = (long)t;
 
@@ -17,7 +17,7 @@ void *th_func(void *t)
 	return NULL;
 }
 
-int test_main(void)
+static int test_main(void)
 {
 	int ret;
 	pthread_t th[2];
@@ -36,7 +36,7 @@ int test_main(void)
 	return ret;
 }
 
-struct cobaye_test dummy = {
+static struct cobaye_test dummy = {
 	.main = test_main,
 	.name = "dummy",
 	.descr = "dummmy test",

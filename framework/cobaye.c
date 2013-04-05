@@ -6,6 +6,7 @@
 #include "cobaye_ncurses.h"
 
 static pthread_mutex_t print_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t scan_lock = PTHREAD_MUTEX_INITIALIZER;
 
 void cobaye_stdout_get_unsafe(void)
 {
@@ -74,13 +75,13 @@ int cobaye_scanf(char *fmt, ...)
 	va_list list;
 	va_start(list, fmt);
 
-	pthread_mutex_lock(&print_lock);
+	pthread_mutex_lock(&scan_lock);
 	if (cobaye_forked()) {
 		ret = vscanf(fmt, list);
 	} else {
 		ret = vwscanw(ctxwin, fmt, list);
 	}
-	pthread_mutex_unlock(&print_lock);
+	pthread_mutex_unlock(&scan_lock);
 	va_end(list);
 	return ret;
 }
