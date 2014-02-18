@@ -1,85 +1,24 @@
-
-#include <sys/select.h>
-#include <unistd.h>
+#include <errno.h>
 #include <fcntl.h>
-#include <time.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/select.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 
-#include "cobaye_ncurses.h"
-#include "cobaye_report.h"
-#include "cobaye_menus.h"
+#include "cobaye_framework.h"
 
 #ifndef max
 #define max(a, b)	((a>b)?a:b)
 #endif
 
-int cobaye_count = 0;
-struct menu *cobaye_list = NULL;
-
 static int cobaye_pid = 0;
-
-/* State machine for pipe redirection */
-#define STATUS_EOT	0
-#define STATUS_INIT	1
-#define STATUS_STRING	2
-
-int cobaye_process_std(int in_test, int out_test, int in_cobaye)
-{
-	int err;
-	static int output = 0;
-	static int status = STATUS_EOT;
-
-	char data[2] = "\0\0";
-	struct timeval timeout;
-	fd_set rdfs;
-
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 500000;
-
-	FD_ZERO(&rdfs);
-	FD_SET(in_test, &rdfs);
-	if (in_cobaye >= 0) {
-		FD_SET(in_cobaye, &rdfs);
-	}
-
-	err = select(max(in_test, in_cobaye) + 1, &rdfs, NULL, NULL, &timeout);
-	if (err > 0) {
-		if (FD_ISSET(in_test, &rdfs)) {
-			err = read(in_test, data, 1);
-
-			switch(data[0]) {
-			case 0x02:		/* Start of transmition */
-				status = STATUS_INIT;
-				break;
-			case 0x17:		/* End of transmition */
-				status = STATUS_EOT;
-				break;
-			default:
-				if(status == STATUS_INIT) {
-					output = data[0] - '0';
-					status = STATUS_STRING;
-				} else if(status == STATUS_STRING) {
-					cobaye_report_all(TST_STRING, NULL, 0, data, output);
-				}
-				break;
-			}
-		} else if (in_cobaye >= 0 && FD_ISSET(in_cobaye, &rdfs)) {
-			read(in_cobaye, data, 1);
-			write(out_test, data, 1);
-			if (data[0] == '\r' || data[0] == '\n') {
-				data[0] = '\n';
-			}
-			cobaye_report_all(TST_STRING, NULL, 0, data, 0);
-		} else {
-			err = 0;
-		}
-	}
-	return err;
-}
 
 int cobaye_forked(void)
 {
@@ -89,53 +28,130 @@ int cobaye_forked(void)
 	return 1;
 }
 
-int cobaye_fork(struct cobaye_test *test)
+#define IN	0
+#define OUT	1
+#define ERR	2
+
+static int cobaye_fork(struct cobaye_test *test, int iter)
 {
 	int ret = 0;
 	int pid = 0;
-	int out[2];
-	int in[2];
+	int err_from_tst[2];
+	int data_from_tst[2];
+	int data_to_tst[2];
+	int ctrl_from_tst[2];
+	int ctrl_to_tst[2];
 
-	ret = pipe(out);
-	ret = pipe(in);
+	ret = pipe(err_from_tst);
+	ret = pipe(data_from_tst);
+	ret = pipe(data_to_tst);
+	ret = pipe(ctrl_from_tst);
+	ret = pipe(ctrl_to_tst);
 
 	pid = fork();
 	if (pid == 0) {
+		int ret;
+
 		/* prepare all stdin/err/out */
-		close(in[1]);
-		close(out[0]);
-		dup2(in[0], 0);
-		dup2(out[1], 1);
-		dup2(out[1], 2);
-		close(in[0]);
-		close(out[1]);
+		close(ctrl_to_tst[OUT]);
+		close(ctrl_from_tst[IN]);
+		close(err_from_tst[IN]);
+		close(data_to_tst[OUT]);
+		close(data_from_tst[IN]);
+		dup2(data_to_tst[IN], IN);
+		dup2(data_from_tst[OUT], OUT);
+		dup2(err_from_tst[OUT], ERR);
+		close(data_to_tst[IN]);
+		close(data_from_tst[OUT]);
+		close(err_from_tst[OUT]);
 
 		/* perform test */
-		exit(test->main());
+		ret = test->main();
 
-	} else if (pid > 0) {
-		/* listen to test result */
-		close(out[1]);
-		close(in[0]);
-
-		while (1) {
-			int err;
-			int status;
-
-			test->result = -1;
-			cobaye_process_std(out[0], in[1], 0);
-
-			err = waitpid(pid, &status, WNOHANG);
-			if (err == pid) {
-				while (cobaye_process_std(out[0], -1, -1) > 0);
-				ret = WEXITSTATUS(status);
-				test->result = WEXITSTATUS(status);
+		fflush(stdout);
+		fflush(stderr);
+		
+		/* synchro with framework */
+		write(ctrl_from_tst[OUT], "Q", 1);
+		do {
+			int cmd = 0;
+			read(ctrl_to_tst[IN], &cmd, 1);
+			if  (cmd)
 				break;
-			}
+		} while (1);
+
+		exit(ret);
+	} else if (pid > 0) {
+		int status;
+		int tst_running = 1;
+
+		/* listen to test result */
+		close(err_from_tst[OUT]);
+		close(ctrl_from_tst[OUT]);
+		close(ctrl_to_tst[IN]);
+		close(data_from_tst[OUT]);
+		close(data_to_tst[IN]);
+
+		/* configure inputs to be non blocking IO */
+		status = fcntl(IN, F_GETFL, 0) | O_NONBLOCK;
+		fcntl(IN, F_SETFL, status);
+		status = fcntl(data_from_tst[IN], F_GETFL, 0) | O_NONBLOCK;
+		fcntl(data_from_tst[IN], F_SETFL, status);
+		status = fcntl(err_from_tst[IN], F_GETFL, 0) | O_NONBLOCK;
+		fcntl(err_from_tst[IN], F_SETFL, status);
+		status = fcntl(ctrl_from_tst[IN], F_GETFL, 0) | O_NONBLOCK;
+		fcntl(ctrl_from_tst[IN], F_SETFL, status);
+
+		/* While test is running: proxy std streams */
+		while (tst_running) {
+			int nbytes;
+			char buffer[128];
+
+			/* check for test termination */
+			nbytes = read(ctrl_from_tst[IN], buffer, 1);
+			if (nbytes > 0)
+				tst_running = 0;
+
+			/* check stdout from test process */
+			do {
+				memset(buffer, 0, sizeof(buffer));
+				nbytes = read(data_from_tst[IN], buffer, 128);
+				if (nbytes > 0)
+					cobaye_report_all(TST_STRING, test->name, iter, buffer, 1);
+			} while (nbytes > 0);
+
+			/* check stderr from test process */
+			do {
+				memset(buffer, 0, sizeof(buffer));
+				nbytes = read(err_from_tst[IN], buffer, 128);
+				if (nbytes > 0)
+					cobaye_report_all(TST_STRING, test->name, iter, buffer, 2);
+			} while (nbytes > 0);
+
+			/* check stdin from console */
+			do {
+				memset(buffer, 0, sizeof(buffer));
+				nbytes = read(IN, buffer, 128);
+				if (nbytes > 0) {
+					cobaye_report_all(TST_STRING, test->name, iter, buffer, 0);
+					write(data_to_tst[OUT], buffer, nbytes);
+				}
+			} while (nbytes > 0);
 		}
 
-		close(out[0]);
-		close(in[1]);
+		write(ctrl_to_tst[OUT], "Q", 1);
+
+		ret = waitpid(pid, &status, 0);
+		if (ret == pid) {
+			ret = WEXITSTATUS(status);
+			test->result = ret;
+		}
+
+		close(err_from_tst[IN]);
+		close(data_from_tst[IN]);
+		close(data_to_tst[OUT]);
+		close(ctrl_from_tst[IN]);
+		close(ctrl_to_tst[OUT]);
 	} else {
 		/* fork failed */
 		ret = -1;
@@ -144,65 +160,48 @@ int cobaye_fork(struct cobaye_test *test)
 	return ret;
 }
 
-static int cobaye_run_tst_pre(struct menu *entry)
+static int cobaye_run_tst_pre(struct cobaye_entry *entry)
 {
 	int ret;
 	int iter;
-	char test_short_name[128];
+	char test_short_name[NAME_LEN];
 	char *convert_name = test_short_name;
 
-	if (!cobaye_seq_mode()) {
-		wclear(ctxwin);
-
+	if (!entry->seq) {
 		ret = cobaye_report_open();
-		if (ret < 0) {
+		if (ret < 0)
 			return -1;
-		}
 	}
 
-	if (entry->test == NULL) {
-		return cobaye_run_seq(entry);
-	} 
-
-	strcpy(test_short_name, entry->test->name);
-	while (*convert_name) {
-		switch (*convert_name) {
-			case ' ':
-			case '-':
-			case '\t':
-			case '\r':
-			case '\n':
-			case '\\':
-			case '"':
-			case '\'':
-			case '/':
-			case '*':
-				*convert_name = '_';
-				break;
-		}
-		convert_name++;
-	}
+	///strcpy(test_short_name, entry->test->name);
+	///while (*convert_name) {
+	///	switch (*convert_name) {
+	///		case ' ':
+	///		case '-':
+	///		case '\t':
+	///		case '\r':
+	///		case '\n':
+	///		case '\\':
+	///		case '"':
+	///		case '\'':
+	///		case '/':
+	///		case '*':
+	///			*convert_name = '_';
+	///			break;
+	///	}
+	///	convert_name++;
+	///}
 	return 0;
 }
 
-static int cobaye_run_tst_post(struct menu *entry)
+static int cobaye_run_tst_post(struct cobaye_entry *entry)
 {
-	if (!cobaye_seq_mode()) {
+	if (!entry->seq)
 		cobaye_report_close();
-
-		if (cobaye_ncurses_enabled()) {
-			while (1) {
-				int pressed = getch();
-				if ((pressed == '\n') || (pressed == ' ') || (pressed == 'q') || (pressed == 'Q')) {
-					break;
-				}
-			}
-		}
-	}
 	return 0;
 }
 
-int cobaye_run_tst(struct menu *entry)
+int cobaye_run_tst(struct cobaye_entry *entry)
 {
 	int ret = 0;
 
@@ -215,18 +214,18 @@ int cobaye_run_tst(struct menu *entry)
 
 		cobaye_report_all(TST_START, entry->test->name, 0, NULL, 0);
 
-		for (iter = 0; iter < confmenu[item_repeat].value; iter++) {
-			if (((entry->test->flags & TST_NO_USER) == 0) && !cobaye_ncurses_enabled()) {
+		for (iter = 0; iter < cobaye_conf[item_repeat].value; iter++) {
+			if (((entry->test->flags & TST_NO_USER) == 0)) {
 				cobaye_report_all(TST_SKIP, entry->test->name, iter, NULL, 0);
 				break;
 			}
 			cobaye_report_all(TST_RUN, entry->test->name, iter, NULL, 0);
 
-			if (entry->test->flags & TST_NO_FORK) {
+			/* Run the test */
+			if (entry->test->flags & TST_NO_FORK)
 				ret = entry->test->main();
-			} else {
-				ret = cobaye_fork(entry->test);
-			}
+			else
+				ret = cobaye_fork(entry->test, iter);
 
 			if (ret < 0) {
 				cobaye_report_all(TST_ERROR, entry->test->name, iter, NULL, ret);
@@ -237,97 +236,18 @@ int cobaye_run_tst(struct menu *entry)
 				ret = -1;
 			}
 
-			if ((ret != 0) && (confmenu[item_stop_on_error].value == 1))
+			if ((ret != 0) && (cobaye_conf[item_stop_on_error].value == 1))
 				break;
 		}
 
 		cobaye_report_all(TST_STOP, entry->test->name, 0, NULL, 0);
 
+	} else {
+		cobaye_run_seq(entry);
 	}
 
 	cobaye_run_tst_post(entry);
 
 
 	return 1;
-}
-
-struct cobaye_test *cobaye_test_exist(char *data)
-{
-	int i = 1;
-	for (i = 1; i < cobaye_count; i++) {
-		if (strcmp(data, cobaye_list[i].name) == 0) {
-			return cobaye_list[i].test;
-		}
-	}
-
-	return NULL;
-}
-
-int cobaye_test_submenu(struct menu *entry)
-{
-	unsigned int i;
-
-	for (i = 0; i < sizeof(testmenu) / sizeof(struct menu); i++) {
-		testmenu[i].test = entry->test;
-		cobaye_display_menu_entry(ctxwin, &testmenu[i], i);
-	}
-	cobaye_display_menu(ctxwin, testmenu, i);
-
-	return 0;
-}
-
-int cobaye_display_tests(struct menu *entry)
-{
-	int i;
-
-	for (i = 0; i < cobaye_count; i++) {
-		cobaye_display_menu_entry(ctxwin, &cobaye_list[i], i);
-	}
-	cobaye_display_menu(ctxwin, cobaye_list, cobaye_count);
-	return 0;
-}
-
-int cobaye_build_list(struct menu *menu)
-{
-	int index = 1;
-	struct cobaye_test **ptr = &cobaye_start_cobaye_list;
-
-	if (menu) {
-		menu[0].type = menutype_title;
-		strcpy(menu[0].name, "Tests");
-	}
-
-	do {
-		if (*ptr) {
-			if (menu) {
-				menu[index].type = menutype_func;
-				sprintf(menu[index].help, "Run %s test",
-					(*ptr)->name);
-				strcpy(menu[index].name, (*ptr)->name);
-				menu[index].func = cobaye_test_submenu;
-				menu[index].test = (*ptr);
-			}
-			index++;
-		}
-		ptr++;
-	} while (ptr != &cobaye_end_cobaye_list);
-
-	if (menu) {
-		menu[index].type = menutype_disabled;
-		menu[index].func = cobaye_test_submenu;
-		menu[index].test = NULL;
-		strcpy(menu[index].name, "sequence");
-		strcpy(menu[index].help,
-		       "launch the previously loaded test sequence.");
-
-		menu[index + 1].type = menutype_disabled;
-		strcpy(menu[index + 1].name, "");
-
-		menu[index + 2].func = cobaye_menu_quit;
-		strcpy(menu[index + 2].name, "Back");
-		strcpy(menu[index + 2].help, "Go back to main menu.");
-	}
-	index += 3;
-
-	return index;
 }

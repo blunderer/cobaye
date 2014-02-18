@@ -12,8 +12,6 @@ static void *th_func(void *t)
 {
 	long id = (long)t;
 
-	cobaye_status(id, "hello from %ld\n", id);
-
 	return NULL;
 }
 

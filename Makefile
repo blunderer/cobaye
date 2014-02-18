@@ -12,60 +12,53 @@ E =
 P = @true
 endif
 
-CC	:= $(CROSS_COMPILE)gcc
-OBJCOPY := $(CROSS_COMPILE)objcopy
+space	:= $(empty) $(empty)
+comma	:= $(empty),$(empty)
+
+CC	?= $(CROSS_COMPILE)gcc
+OBJCOPY ?= $(CROSS_COMPILE)objcopy
 
 TOPDIR	:= $(PWD)/$(shell dirname $(MAKEFILE_LIST))
 
-SHELL	= /bin/bash
 SUBMK	= $(wildcard tests/*.mk)
-
 TESTS	= $(wildcard tests/*.c)
-OBJS	= framework/cobaye_main.o \
-		framework/cobaye.o \
-		framework/cobaye_tests.o \
-		framework/cobaye_menu_core.o \
-		framework/cobaye_menus.o \
-		framework/cobaye_display.o \
-		framework/cobaye_seq.o \
-		framework/cobaye_report.o \
-		$(TESTS:.c=.o) \
-		framework/zztest.o
+REPORTS	= $(wildcard framework/cobaye_report_*.c)
+RTYPES	= $(subst $(space),$(comma),$(REPORTS:framework/cobaye_report_%.c=%))
 
-RES	= README
+RES		= README
+OBJS		= $(TESTS:.c=.o) 
+ROBJS		= $(REPORTS:.c=.o)
 
-INCDIR	= -Iinclude
+FOBJS		= framework/cobaye_main.o \
+		   framework/cobaye_tests.o \
+		   framework/cobaye_seq.o \
+		   framework/cobaye_report.o \
+		   $(ROBJS) \
+		   framework/cobaye.o
 
-TARGET	= cobaye
-
-EXT_CFLAGS	+= -g -Wall -Wextra -Wno-unused -D_GNU_SOURCE
+INCDIR		= -Iframework
+TARGET		= cobaye
+EXT_CFLAGS	+= -g -Wall -Wextra -Wno-unused -Wno-unused-parameter -D_GNU_SOURCE
 CFLAGS		+= $(EXT_CFLAGS) -DCOBAYE_FRAMEWORK
+FW_CFLAGS	= -DRTYPE=\"$(RTYPES)\"
 
-LDFLAGS	+= -lncurses -lpthread -lrt
-
-x86_BLACKLIST = 
-arm_BLACKLIST = 
-
-ARCH		= unknown
-MACH		= $(shell machine=$$($(CC) -dumpmachine) && echo $${machine:0:3})
-L_OBJS		=
-L_LDFLAGS	=
+ARCH		= $(shell $(CC) -dumpmachine | awk -F- '{ print $$1}')
+SYSTEM		= $(shell $(CC) -dumpmachine | awk -F- '{ print $$(NF-1)}')
 
 include $(SUBMK)
 
-ifeq ($(MACH), x86)
-ARCH		= $(MACH)
-L_OBJS		= $(filter-out $(x86_BLACKLIST), $(OBJS))
-L_LDFLAGS	= $(filter-out $(x86_BLACKLIST), $(LDFLAGS))
-endif
+MACH		?= $(ARCH)
+L3_OBJS         = $(filter-out $($(MACH)_BLACKLIST), $(OBJS))
+L3_LDFLAGS      = $(filter-out $($(MACH)_BLACKLIST), $(LDFLAGS))
+L2_OBJS         = $(filter-out $($(SYSTEM)_BLACKLIST), $(L3_OBJS))
+L2_LDFLAGS      = $(filter-out $($(SYSTEM)_BLACKLIST), $(L3_LDFLAGS))
+L1_OBJS         = $(filter-out $($(TARGET)_BLACKLIST), $(L2_OBJS))
+L1_LDFLAGS      = $(filter-out $($(TARGET)_BLACKLIST), $(L2_LDFLAGS))
 
-ifeq ($(MACH), arm)
-ARCH		= $(MACH)
-L_OBJS		= $(filter-out $(arm_BLACKLIST), $(OBJS))
-L_LDFLAGS	= $(filter-out $(arm_BLACKLIST), $(LDFLAGS))
-endif
+L_OBJS		:= $(FOBJS) $(L1_OBJS) framework/zztest.o
+L_LDFLAGS	= $(L1_LDFLAGS) -lpthread -lrt
 
-all arm x86: $(TARGET)
+all: $(TARGET)
 
 test: $(TARGET)
 	$P '  EXEC		$@'
@@ -88,7 +81,6 @@ cobaye.lds: $(RES)
 
 tests/%.o: tests/%.c framework/cobaye_tests.o
 	$P '  CC [TST]	$@'
-	$E $(TOPDIR)/validate_tests.sh $<
 	$E $(CC) -c -o $@ $< $(INCDIR) $(CFLAGS) $(CFLAGS_$(shell NAME=$@ && basename $${NAME%.o}))
 
 tests/%.ext: tests/%.c
@@ -106,14 +98,15 @@ framework/zztest.o: framework/zztest.c $(RES)
 
 %.o: %.c
 	$P '  CC 		$@'
-	$E $(CC) -c -o $@ $^ $(INCDIR) $(CFLAGS)
+	$E $(CC) -c -o $@ $^ $(INCDIR) $(FW_CFLAGS) $(CFLAGS)
 
 .PHONY: clean
 clean:
 	$P '  RM		TARGET'
 	$E rm -f $(TARGET)
-	$P '  RM		OBJS'
-	$E rm -f $(L_OBJS)
+	$P '  RM		FRAMEWORK OBJS'
+	$E rm -f framework/*.o
+	$P '  RM		TEST OBJS'
+	$E rm -f tests/*.o
 	$P '  RM		LDS'
 	$E rm -f cobaye.lds
-

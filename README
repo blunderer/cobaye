@@ -5,9 +5,8 @@
 
 Testing is an important task, but can be quite tedious. Having a test framework
 to rely on can be useful and helps to focus on test efficency.
-Cobaye is a test framework with a ncurses based interface that can run thru a 
-telnet / serial connection. It also offers a batch mode to run automatic test 
-sequences.
+Cobaye is a test framework tahet can run thru a telnet / serial connection.
+It offers a batch mode to run automatic test sequences, security, report generation...
 
 The test API is extremely simple: write your test in the 'tests' directory.
 The tests must be declared using macro cobaye_declare_test with the 
@@ -28,14 +27,13 @@ At run the test framework, will generate a list of all compiled tests and when
 running a test, it will fork to run the test.
 
 cobaye features are:
-- cobaye_printf to display logs
-- cobaye_scanf to prompt user for input
+- standard stdout to display logs or cobaye_printf for auto flush
+- standard stdin to prompt user for input 
 - resources embedded as blob
-- report generation
+- automatic report generation
 - batch mode (for auto tests only)
 - build flags customization for tests
-- out of tree build
-- handling of test sequences
+- standalone test build for easy debugging outside of test framework
+- handling of test sequences and running one test multiple times
 
-For more info, check out the dummy.c test example.
-
+For more info, check out the dummy.c test example and refer to documentation.
