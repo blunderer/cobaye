@@ -1,0 +1,57 @@
+#
+# Report generation
+#
+
+1. Intro
+---------
+Cobaye comes with a dynamic report generation. Several format are supported and up to 32 different output formats can be supported in parallel.
+Each format is identified by its extension
+
+2. Supported formats
+---------------------
+cobaye supports the following formats:
+- txt: textual report
+- csv: comma separated value for easy import into spreadsheets
+- xml: xml report for post processing in custom software
+- html: web report for easy graphical analysis
+
+3. Adding more formats
+-----------------------
+Adding new format is easy. One just need to implement the report function and register it.
+
+3.1. Implementing report function
+----------------------------------
+The reporting in cobaye is done using a stream of event of several types:
+- TST_OPEN:	report is opened.
+- TST_START:	test is starting.
+- TST_STOP:	test is done.
+- TST_RUN:	iteration of a test is starting
+- TST_SKIP:	iteration of a test is skipped
+- TST_ERROR:	iteration of a test terminates with framework error (cannot run)
+- TST_PASS:	iteration of a test terminates with success
+- TST_FAIL:	iteration of a test terminates with test error (error code provided by test is stored in id parameter)
+- TST_STRING:	iteration of a test wants to read from stdin or write to stdout. id paramter contains 0, 1, or 2 for stdin, stdout, stderr
+- TST_CLOSE:	report is closed
+
+Typically:
+- Running one successful test will trigger the following events:
+	TST_OPEN - TST_START - TST_RUN - TST_PASS - TST_CLOSE
+- Running one successful sequence of one test several times will trigger the following events:
+	TST_OPEN - TST_START - TST_RUN - TST_PASS - TST_RUN - TST_PASS - TST_RUN - TST_PASS - TST_CLOSE
+Note:
+If a test is skipped, the SKIP event will be sent instead of the START event and no ERROR, FAIL, PASS, events will be sent.
+
+The main function can rely on the struct cobaye_report path field if it needs to know where the report is created (ie: to add more files).
+The main function can rely on the struct cobaye_report stream field to fwrite/fprintf to.
+
+3.2. Registering report function
+---------------------------------
+Registering a report function is done by adding a new cobaye_report_<ext>.c file.
+One then can create a struct cobaye_test.
+Them one need to assign the test extension and the test main function and use the macro cobaye_declare_report.
+
+static struct cobaye_report report = {
+	.report = cobaye_report_txt,
+	.ext = "txt"
+}; 
+cobaye_declare_report(report);
