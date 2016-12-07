@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <pthread.h>
@@ -46,3 +47,8 @@ int cobaye_scanf(char *fmt, ...)
 	return ret;
 }
 
+int cobaye_run_command(const char *command)
+{
+	cobaye_printf(">> ");
+	return system(command);
+}

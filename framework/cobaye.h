@@ -59,6 +59,7 @@ struct cobaye_report {
 int cobaye_printf(char *fmt, ...);
 int cobaye_scanf(char *fmt, ...);
 int cobaye_status(int id, char *fmt, ...);
+int cobaye_run_command(const char *command);
 
 void cobaye_stdout_get_unsafe(void);
 void cobaye_stdout_put_unsafe(void);

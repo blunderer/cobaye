@@ -48,10 +48,7 @@ static int cobaye_report_stdout(int type, char *name, int iter, char *str, int i
 		printf("%s(%d): Fail %d\n", name, iter, id);
 		break;
 	case TST_STRING:
-		if (id == 1 || id == 2)
-			printf(">> %s", str);
-		else if (id == 0)
-			printf("<< %s", str);
+		printf("%s", str);
 		fflush(stdout);
 		break;
 	case TST_CLOSE:
