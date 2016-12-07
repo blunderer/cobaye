@@ -115,7 +115,7 @@ static int cobaye_fork(struct cobaye_test *test, int iter)
 			/* check stdout from test process */
 			do {
 				memset(buffer, 0, sizeof(buffer));
-				nbytes = read(data_from_tst[IN], buffer, 128);
+				nbytes = read(data_from_tst[IN], buffer, sizeof(buffer) - 1);
 				if (nbytes > 0)
 					cobaye_report_all(TST_STRING, test->name, iter, buffer, 1);
 			} while (nbytes > 0);
@@ -123,7 +123,7 @@ static int cobaye_fork(struct cobaye_test *test, int iter)
 			/* check stderr from test process */
 			do {
 				memset(buffer, 0, sizeof(buffer));
-				nbytes = read(err_from_tst[IN], buffer, 128);
+				nbytes = read(err_from_tst[IN], buffer, sizeof(buffer) - 1);
 				if (nbytes > 0)
 					cobaye_report_all(TST_STRING, test->name, iter, buffer, 2);
 			} while (nbytes > 0);
@@ -131,7 +131,7 @@ static int cobaye_fork(struct cobaye_test *test, int iter)
 			/* check stdin from console */
 			do {
 				memset(buffer, 0, sizeof(buffer));
-				nbytes = read(IN, buffer, 128);
+				nbytes = read(IN, buffer, sizeof(buffer) - 1);
 				if (nbytes > 0) {
 					cobaye_report_all(TST_STRING, test->name, iter, buffer, 0);
 					write(data_to_tst[OUT], buffer, nbytes);
