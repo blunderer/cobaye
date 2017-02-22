@@ -220,6 +220,7 @@ int main(int argc, char **argv)
 			ret = cobaye_run_tst(seq);
 			cobaye_destroy_seq(seq);
 		} else {
+			ret = -1;
 			printf("test '%s' doesn't exist\n", target);
 		}
 	}
