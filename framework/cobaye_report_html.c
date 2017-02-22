@@ -11,7 +11,7 @@ static struct cobaye_report report;
 
 static int cobaye_report_html(int type, char *name, int iter, char *str, int id)
 {
-	char date[18];
+	char date[20];
 	FILE *css = NULL;
 	struct stat buf;
 	time_t now = time(NULL);

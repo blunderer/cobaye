@@ -77,10 +77,10 @@ struct cobaye_entry *cobaye_build_seq(char *name)
 	FILE *seq = cobaye_open_seq(name, &sequence);
 	
 	if (sequence) {
-		char data[NAME_LEN+8];
+		char data[NAME_LEN+8] = {0};
 
 		while (i <= sequence[0].value && !feof(seq)) {
-			fgets(data, 127, seq);
+			fgets(data, sizeof(data) - 1, seq);
 			data[strlen(data) - 1] = '\0';
 
 			i = cobaye_seq_add_entry(sequence, data, i);
