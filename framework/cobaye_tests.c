@@ -249,5 +249,5 @@ int cobaye_run_tst(struct cobaye_entry *entry)
 	cobaye_run_tst_post(entry);
 
 
-	return 1;
+	return ret;
 }
