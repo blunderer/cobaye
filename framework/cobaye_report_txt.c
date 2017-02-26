@@ -11,7 +11,7 @@ static struct cobaye_report report;
 
 static int cobaye_report_txt(int type, char *name, int iter, char *str, int id)
 {
-	char date[18];
+	char date[20];
 	time_t now = time(NULL);
 	struct tm *now_time = localtime(&now);
 
